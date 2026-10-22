@@ -1,6 +1,19 @@
 # Development status
 
-Current firmware: **1.2.11**
+Current firmware: **1.2.12**
+
+## 1.2.12 LCD latency change
+
+Runtime LCD output is now buffered and incremental.
+
+- the four 16-character rows are composed in RAM
+- unchanged characters are not sent over I2C
+- at most four contiguous changed characters are written per loop iteration
+- the LCD does not wait for the shared RTC/LCD I2C mutex; if the RTC owns the bus, the LCD update is deferred
+- page changes are spread over multiple short transfers instead of one full 64-character refresh
+- boot messages still use the original immediate writer before the measurement task starts
+
+The existing `lcdMaxUs` diagnostic now measures one compose/service loop rather than a full 4-row refresh. Additional raw status fields expose LCD chunk duration, chunks, characters, and bus-busy skips.
 
 ## Current state
 
