@@ -1,0 +1,65 @@
+--- /mnt/data/Zeitkiste_1.2.10.cpp	2026-10-22 12:52:25.053311887 +0000
++++ /mnt/data/Zeitkiste_1.2.11.cpp	2026-10-22 12:53:22.924578609 +0000
+@@ -37,7 +37,7 @@
+ // nicht belastet. Dieses Makro MUSS als PlatformIO build_flag gesetzt werden,
+ // damit es auch beim Kompilieren der AsyncTCP-Bibliothek wirksam ist.
+ #if CONFIG_ASYNC_TCP_RUNNING_CORE != 0
+-#error "Zeitkiste 1.2.10: CONFIG_ASYNC_TCP_RUNNING_CORE muss per build_flags auf 0 gesetzt sein."
++#error "Zeitkiste 1.2.11: CONFIG_ASYNC_TCP_RUNNING_CORE muss per build_flags auf 0 gesetzt sein."
+ #endif
+ #ifndef CONFIG_PCNT_ISR_IRAM_SAFE
+ #define CONFIG_PCNT_ISR_IRAM_SAFE 0
+@@ -86,7 +86,7 @@
+ void enqueueRtcEvent(uint8_t kind, uint64_t epoch, int16_t aging, double value);
+ extern volatile uint32_t rtcEventsDropped;
+ 
+-constexpr char FW_VERSION[] = "1.2.10";
++constexpr char FW_VERSION[] = "1.2.11";
+ constexpr char HOSTNAME[] = "zeitkiste";
+ constexpr char TZ_INFO[] = "CET-1CEST,M3.5.0,M10.5.0/3";
+ 
+@@ -754,10 +754,11 @@
+ struct PcntReadSample {
+   uint32_t count = 0;
+   int64_t mono = 0;
++  uint32_t callUs = 0; // Dauer von pcnt_unit_get_count(), reine Diagnose
+   bool ok = false;
+ };
+ 
+-// 1.2.10: Rohspur der unmittelbar aufeinanderfolgenden PCNT-Leseversuche.
++// 1.2.11: Rohspur der unmittelbar aufeinanderfolgenden PCNT-Leseversuche inkl. Aufrufdauer.
+ // Nur Diagnose; die Messentscheidung selbst bleibt unveraendert.
+ struct PcntReadTrace {
+   PcntReadSample a, b, c;
+@@ -802,6 +803,9 @@
+   const int64_t a = esp_timer_get_time();
+   const esp_err_t e = pcnt_unit_get_count(unit, &value);
+   const int64_t b = esp_timer_get_time();
++  const int64_t callDt = b-a;
++  r.callUs = callDt <= 0 ? 0U :
++             (callDt > (int64_t)UINT32_MAX ? UINT32_MAX : (uint32_t)callDt);
+   pcntReadAttempts++;
+   if (e != ESP_OK) {
+     pcntDriverReadErrors++;
+@@ -3073,9 +3077,11 @@
+   j+=",\"r32Ok\":"; j+=fe.r32Ok?"true":"false";
+   j+=",\"ocA\":"+String(fe.ocTrace.a.count)+",\"ocB\":"+String(fe.ocTrace.b.count)+",\"ocC\":"+String(fe.ocTrace.c.count);
+   j+=",\"ocAUs\":"+String((long long)fe.ocTrace.a.mono)+",\"ocBUs\":"+String((long long)fe.ocTrace.b.mono)+",\"ocCUs\":"+String((long long)fe.ocTrace.c.mono);
++  j+=",\"ocADurUs\":"+String(fe.ocTrace.a.callUs)+",\"ocBDurUs\":"+String(fe.ocTrace.b.callUs)+",\"ocCDurUs\":"+String(fe.ocTrace.c.callUs);
+   j+=",\"ocThird\":"; j+=fe.ocTrace.thirdRead?"true":"false";
+   j+=",\"r32A\":"+String(fe.r32Trace.a.count)+",\"r32B\":"+String(fe.r32Trace.b.count)+",\"r32C\":"+String(fe.r32Trace.c.count);
+   j+=",\"r32AUs\":"+String((long long)fe.r32Trace.a.mono)+",\"r32BUs\":"+String((long long)fe.r32Trace.b.mono)+",\"r32CUs\":"+String((long long)fe.r32Trace.c.mono);
++  j+=",\"r32ADurUs\":"+String(fe.r32Trace.a.callUs)+",\"r32BDurUs\":"+String(fe.r32Trace.b.callUs)+",\"r32CDurUs\":"+String(fe.r32Trace.c.callUs);
+   j+=",\"r32Third\":"; j+=fe.r32Trace.thirdRead?"true":"false";
+   j+=",\"intervalPrev\":"+String(fe.intervalPrevRaw)+",\"intervalCurr\":"+String(fe.intervalCurrRaw)+",\"intervalSpan\":"+String(fe.intervalSpan);
+   j+=",\"intervalHz\":"+jnum(fe.intervalPerSecond,6);
+@@ -3753,7 +3759,8 @@
+   const third=p[pre+'Third'];
+   let t=hx(p[pre+'A'])+'/'+hx(p[pre+'B']);
+   t+=' dAB '+dd(p[pre+'A'],p[pre+'B'])+' dt '+dd(p[pre+'AUs'],p[pre+'BUs'])+'us';
+-  if(third) t+='/'+hx(p[pre+'C'])+' dBC '+dd(p[pre+'B'],p[pre+'C'])+' dt '+dd(p[pre+'BUs'],p[pre+'CUs'])+'us';
++  t+=' rdA/B '+p[pre+'ADurUs']+'/'+p[pre+'BDurUs']+'us';
++  if(third) t+='/'+hx(p[pre+'C'])+' dBC '+dd(p[pre+'B'],p[pre+'C'])+' dt '+dd(p[pre+'BUs'],p[pre+'CUs'])+'us rdC '+p[pre+'CDurUs']+'us';
+   return t;
+ }
+ async function pcntdiag(){
