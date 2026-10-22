@@ -997,7 +997,8 @@ void gpsLockDiagTick() {
   const uint32_t now=millis();
   if (!gpsLockDiagSeenLock) {
     if (locked) { gpsLockDiagSeenLock=true; gpsLockDiagPrevLocked=true; }
-    return; // Startphase nicht als Aussetzer zaehlen.  }
+    return; // Startphase nicht als Aussetzer zaehlen.
+  }
   if (locked) {
     if (!gpsLockDiagPrevLocked && gpsUnlockSinceMs) {
       const uint32_t d=now-gpsUnlockSinceMs;
@@ -1996,7 +1997,8 @@ bool ntpQuery(const String &host, uint8_t idx) {
       }
       portEXIT_CRITICAL(&ntpDataMux);
       const int64_t endUs=esp_timer_get_time();
-      const uint32_t total=(uint32_t)(endUs>queryStartUs ? endUs-queryStartUs : 0);      if (total>ntpQueryMaxUs[idx]) ntpQueryMaxUs[idx]=total;
+      const uint32_t total=(uint32_t)(endUs>queryStartUs ? endUs-queryStartUs : 0);
+      if (total>ntpQueryMaxUs[idx]) ntpQueryMaxUs[idx]=total;
       return true;
     }
     delay(1);
@@ -2995,7 +2997,8 @@ void resetMeasurementRam() {
   portENTER_CRITICAL(&trendDataMux);
   trendCount=0; trendPos=0;
   memset(trendHistory,0,sizeof(trendHistory));
-  portEXIT_CRITICAL(&trendDataMux);  rtcBaselineMs=NAN; rtcGpsDriftMs=NAN;
+  portEXIT_CRITICAL(&trendDataMux);
+  rtcBaselineMs=NAN; rtcGpsDriftMs=NAN;
   rtcLiveRateReset();
   rtcCalReset(RTC_CAL_CLEAR);
   memset(rtcCalGpsFailCount,0,sizeof(rtcCalGpsFailCount));
