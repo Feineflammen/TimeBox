@@ -313,7 +313,7 @@ void lcdBufferInit() {
   for (uint8_t r=0; r<LCD_ROWS; ++r) {
     for (uint8_t c=0; c<LCD_COLS; ++c) {
       lcdDesired[r][c] = ' ';
-      lcdShadow[r][c] = '\0'; // ungueltig -> erste Laufzeitanzeige wird geschrieben
+      lcdShadow[r][c] = '\0';
     }
     lcdDesired[r][LCD_COLS] = '\0';
     lcdShadow[r][LCD_COLS] = '\0';
@@ -352,8 +352,6 @@ void lcdService() {
   if (!lcd) return;
   if (!lcdBufferReady) lcdBufferInit();
 
-  // Hoechstens einen kleinen zusammenhaengenden Schreibblock pro Loop.
-  // Dadurch kann kein kompletter 4x16-Refresh Core0 ~170 ms am Stueck belegen.
   for (uint8_t scanned=0; scanned<LCD_ROWS*LCD_COLS; ++scanned) {
     const uint8_t row=lcdScanRow, col=lcdScanCol;
     lcdAdvanceScan();
@@ -366,7 +364,7 @@ void lcdService() {
     if (i2cBusMutex &&
         xSemaphoreTakeRecursive(i2cBusMutex,0) != pdTRUE) {
       lcdBusBusySkips++;
-      lcdSetScan(row,col); // denselben Dirty-Block spaeter erneut versuchen
+      lcdSetScan(row,col);
       return;
     }
 
@@ -1094,7 +1092,8 @@ void gpsLockDiagTick() {
   const uint32_t now=millis();
   if (!gpsLockDiagSeenLock) {
     if (locked) { gpsLockDiagSeenLock=true; gpsLockDiagPrevLocked=true; }
-    return; // Startphase nicht als Aussetzer zaehlen.  }
+    return; // Startphase nicht als Aussetzer zaehlen.
+  }
   if (locked) {
     if (!gpsLockDiagPrevLocked && gpsUnlockSinceMs) {
       const uint32_t d=now-gpsUnlockSinceMs;
@@ -2093,7 +2092,8 @@ bool ntpQuery(const String &host, uint8_t idx) {
       }
       portEXIT_CRITICAL(&ntpDataMux);
       const int64_t endUs=esp_timer_get_time();
-      const uint32_t total=(uint32_t)(endUs>queryStartUs ? endUs-queryStartUs : 0);      if (total>ntpQueryMaxUs[idx]) ntpQueryMaxUs[idx]=total;
+      const uint32_t total=(uint32_t)(endUs>queryStartUs ? endUs-queryStartUs : 0);
+      if (total>ntpQueryMaxUs[idx]) ntpQueryMaxUs[idx]=total;
       return true;
     }
     delay(1);
@@ -3092,7 +3092,8 @@ void resetMeasurementRam() {
   portENTER_CRITICAL(&trendDataMux);
   trendCount=0; trendPos=0;
   memset(trendHistory,0,sizeof(trendHistory));
-  portEXIT_CRITICAL(&trendDataMux);  rtcBaselineMs=NAN; rtcGpsDriftMs=NAN;
+  portEXIT_CRITICAL(&trendDataMux);
+  rtcBaselineMs=NAN; rtcGpsDriftMs=NAN;
   rtcLiveRateReset();
   rtcCalReset(RTC_CAL_CLEAR);
   memset(rtcCalGpsFailCount,0,sizeof(rtcCalGpsFailCount));
@@ -4533,8 +4534,8 @@ void loop() {
     if (v.tempLearningCount && v.sampleMs) tempSave();
   }
   int64_t tlcd=esp_timer_get_time();
-  updateLcd();   // nur Sollbild im RAM berechnen
-  lcdService();  // maximal einen kleinen Dirty-Block ueber I2C schreiben
+  updateLcd();
+  lcdService();
   uint32_t lcdUs=(uint32_t)((esp_timer_get_time()>tlcd) ? esp_timer_get_time()-tlcd : 0);
   if (lcdUs>lcdMaxUs) lcdMaxUs=lcdUs;
   const int64_t loopEndUs=esp_timer_get_time();
