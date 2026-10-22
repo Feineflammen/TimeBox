@@ -4,7 +4,7 @@ Development firmware for an ESP32-S3 GNSS/PPS + OCXO time server.
 
 ## Status
 
-**Development / experimental.** The current checked-in firmware is **1.2.11**.
+**Development / experimental.** The current checked-in firmware is **1.2.12**.
 
 The project combines:
 
@@ -38,6 +38,7 @@ The setup access point currently uses a firmware-defined default credential. Do 
 
 ## Firmware
 
-- `firmware/Zeitkiste_1.2.11.cpp` - current development snapshot
+- `firmware/Zeitkiste_1.2.12.cpp` - current development snapshot
+- `firmware/Zeitkiste_1.2.11.cpp` - previous diagnostic snapshot
 - `history/Zeitkiste_1.2.10_to_1.2.11.diff` - diagnostic-only delta from 1.2.10
 
