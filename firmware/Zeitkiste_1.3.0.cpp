@@ -26,6 +26,7 @@ SET_LOOP_TASK_STACK_SIZE(24 * 1024);
 #include "driver/pulse_cnt.h"
 #include "driver/temperature_sensor.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -4804,6 +4805,9 @@ void setup() {
   WiFi.persistent(false);
   WiFi.setSleep(false);
   if (!connectWifi()) startAp();
+  // Arduino-API plus direkter IDF-Treiber: Powersave fuer niedrige UDP/NTP-Latenz sicher aus.
+  const esp_err_t wifiPsErr = esp_wifi_set_ps(WIFI_PS_NONE);
+  Serial.printf("WiFi Powersave: NONE (%s)\n", esp_err_to_name(wifiPsErr));
   setupWeb();
   udp.begin(2390);
   ntpServerStarted = ntpServer.begin(123);
