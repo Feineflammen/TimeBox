@@ -1,6 +1,6 @@
 # Development status
 
-Current firmware: **1.2.12**
+Current firmware: **1.3.0**
 
 ## 1.2.12 LCD latency change
 
@@ -51,52 +51,76 @@ Version 1.2.11 additionally records the execution duration of each individual `p
 
 The measurement baseline is not advanced by rejected snapshots.
 
-## Planned 1.3.0
+## 1.3.0 implementation
+
+1.2.12 was accepted as the stable base after about 16.5 hours of operation with all operating-phase PCNT error counters still at zero. The LCD/Core0 change remains unchanged.
 
 ### True OCXO holdover
 
+Normal GPS-locked measurement remains PPS-only. 1.3.0 does **not** add extra PCNT reads while GPS is trusted.
+
 During trusted GNSS operation:
 
-- derive a slow rolling OCXO frequency estimate from valid long-window measurements
-- prefer long windows such as 1000 s over short-term values
-- learn the expected holdover uncertainty from observed long-term OCXO/reference behavior
+- a slow rolling OCXO bias is learned from valid 300 s / 1000 s windows
+- 1000 s is preferred whenever available
+- learning is disabled during the 30-minute startup observation phase
+- bias and residual variance are persisted together with the existing temperature model
+- the learned model is frozen automatically once GPS lock is lost
 
 At GNSS loss:
 
-- freeze the last trusted UTC/PPS anchor and OCXO frequency model
-- derive time from OCXO ticks rather than the ESP timer
-- do not learn new frequency corrections without a trusted reference
-- use RTC as an independent plausibility monitor
-- grow reported uncertainty as holdover duration increases
+- Core1 starts independent 10 MHz PCNT polling
+- the last trusted PPS/UTC + PCNT read becomes the holdover anchor
+- 64-bit accumulated tick deltas provide the long-term time axis
+- the ESP timer is used only to interpolate the short interval since the latest OCXO publish
+- implausible PCNT deltas are retried once and rejected instead of moving the holdover baseline
+- if no valid OCXO update is available for more than 2 seconds, OCXO holdover loses trusted status
+
+Reported uncertainty separates:
+
+- deterministic learned-frequency uncertainty
+- residual/random frequency scatter
+
+The random term uses a square-root-time accumulation model rather than multiplying raw sigma by total holdover time.
 
 NTP source identity:
 
 - GNSS locked: **Stratum 1**, RefID `GNSS`
-- validated OCXO holdover: **Stratum 2**, RefID `HOLD`
-- no trustworthy reference: **Stratum 16**
+- validated OCXO holdover: **Stratum 2**, RefID `OCXO`
+- ESP fallback / no trustworthy reference: **Stratum 16**
 
-The GNSS PPS/RMC second assignment has been checked continuously against external NTP and does not show a one-second offset.
+The GNSS PPS/RMC second assignment has been checked continuously against the existing NTP comparisons and does not show a one-second offset.
 
-### Switchable RTC calibration
+### Switchable RTC calibration / free-run
 
-Add a web checkbox for RTC calibration.
+The web configuration now includes a persistent RTC calibration checkbox.
 
 When enabled:
 
-- current aging calibration and GPS synchronization behavior remains active
+- existing GPS synchronization remains active
+- existing adaptive Aging calibration remains active
 
 When disabled:
 
-- do not modify the aging register
-- do not resynchronize RTC seconds from GPS
-- let the battery-backed RTC free-run
+- no GPS time is written to the RTC
+- no Aging register value is changed
+- SQW vs GPS measurement continues
+- an unwrapped accumulated free-run drift value is maintained
+- free-run duration and drift are shown in the web status
 
-Display:
+The setting is stored in NVS and survives restart/firmware updates.
 
-- free-run duration
-- accumulated RTC minus GPS phase/error since free-run began
+### New diagnostics
 
-After restart, the battery-backed RTC remains available as a time source. If used for NTP before GNSS/OCXO validation, it must be advertised with appropriately worse trust/uncertainty than GNSS or OCXO holdover.
+The status endpoint exposes:
+
+- holdover learned bias
+- holdover residual sigma
+- holdover learning count
+- holdover PCNT read rejects
+- holdover readiness / counter health / age
+- RTC AUTO vs FREE-RUN
+- RTC free-run duration and accumulated drift
 
 ## Rule for changes
 
