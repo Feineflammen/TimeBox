@@ -4,7 +4,7 @@ Development firmware for an ESP32-S3 GNSS/PPS + OCXO time server.
 
 ## Status
 
-**Development / experimental.** The current checked-in firmware is **1.2.12**.
+**Development / experimental.** The current checked-in firmware is **1.3.0**.
 
 The project combines:
 
@@ -15,7 +15,7 @@ The project combines:
 - web diagnostics and standalone logging
 - Allan deviation and long-term OCXO statistics
 
-The next major development step is **1.3.0**, planned to add true OCXO holdover and switchable RTC calibration/free-run measurement.
+Version **1.3.0** adds true OCXO holdover, GNSS Stratum 1 / OCXO Stratum 2 operation, and switchable RTC calibration/free-run measurement.
 
 ## Current hardware mapping
 
@@ -38,7 +38,8 @@ The setup access point currently uses a firmware-defined default credential. Do 
 
 ## Firmware
 
-- `firmware/Zeitkiste_1.2.12.cpp` - current development snapshot
+- `firmware/Zeitkiste_1.3.0.cpp` - current development snapshot
+- `firmware/Zeitkiste_1.2.12.cpp` - stable pre-1.3 baseline
 - `firmware/Zeitkiste_1.2.11.cpp` - previous diagnostic snapshot
 - `history/Zeitkiste_1.2.10_to_1.2.11.diff` - diagnostic-only delta from 1.2.10
 
