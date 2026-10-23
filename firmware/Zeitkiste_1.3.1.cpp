@@ -6,7 +6,7 @@ SET_LOOP_TASK_STACK_SIZE(24 * 1024);
 // Zeitkiste 1.3.1 / ESP32-S3 Zero / Arduino-ESP32 3.x
 // Datenmessgeraet, Zeitserver und GNSS-Disziplinierung ohne EFC-Regelung.
 // GPS-TX -> GPIO1, GPS-RX <- GPIO2, GPS-PPS -> GPIO4
-// LCD 16x4 + DS3231 SDA5 SCL6; SQW7; RTC 32k GPIO8
+// LCD 20x4 + DS3231 SDA5 SCL6; SQW7; RTC 32k GPIO8
 // OCXO 10 MHz -> Spannungsteiler -> GPIO9, gemeinsame Masse!
 // RTC-VCC an feste Versorgung, NICHT an ESP GPIO.
 #define ZEITKISTE_WLAN_AN 1
@@ -269,9 +269,9 @@ String fmtDate(uint64_t epochUs, bool local = false) {
   return String(buf);
 }
 
-String fit16(String s) {
-  if (s.length() > 16) s.remove(16);
-  while (s.length() < 16) s += ' ';
+String fit20(String s) {
+  if (s.length() > 20) s.remove(20);
+  while (s.length() < 20) s += ' ';
   return s;
 }
 
@@ -282,6 +282,16 @@ String fmtDateShort(uint64_t epochUs, bool local = true) {
   if (local) localtime_r(&tt, &t); else gmtime_r(&tt, &t);
   char b[8];
   snprintf(b,sizeof(b),"%02d.%02d",t.tm_mday,t.tm_mon+1);
+  return String(b);
+}
+
+String fmtDateCompact(uint64_t epochUs, bool local = true) {
+  if (!epochUs) return "--.--.--";
+  time_t tt = epochUs / 1000000ULL;
+  struct tm t {};
+  if (local) localtime_r(&tt, &t); else gmtime_r(&tt, &t);
+  char b[9];
+  snprintf(b,sizeof(b),"%02d.%02d.%02d",t.tm_mday,t.tm_mon+1,(t.tm_year+1900)%100);
   return String(b);
 }
 
@@ -297,7 +307,7 @@ void lcdLine(int row, const String &s) {
   if (!lcd) return;
   I2cBusGuard guard;
   lcd->setCursor(0, row);
-  lcd->print(fit16(s));
+  lcd->print(fit20(s));
 }
 
 // 1.3.1: vier eigene 5x8-Statuszeichen fuer die permanente Kopfzeile.
@@ -336,7 +346,7 @@ void lcdLoadStatusGlyphs() {
 // Das LCD ist unkritisch: ist der gemeinsame RTC/LCD-I2C-Bus belegt,
 // wartet Core0 NICHT auf den Mutex, sondern versucht es im naechsten Loop.
 constexpr uint8_t LCD_ROWS = 4;
-constexpr uint8_t LCD_COLS = 16;
+constexpr uint8_t LCD_COLS = 20;
 constexpr uint8_t LCD_WRITE_CHUNK = 4;
 char lcdDesired[LCD_ROWS][LCD_COLS + 1] = {};
 char lcdShadow[LCD_ROWS][LCD_COLS + 1] = {};
@@ -364,7 +374,7 @@ void lcdBufferInit() {
 void lcdDesiredLine(uint8_t row, const String &s) {
   if (row >= LCD_ROWS) return;
   if (!lcdBufferReady) lcdBufferInit();
-  const String fixed = fit16(s);
+  const String fixed = fit20(s);
   for (uint8_t c=0; c<LCD_COLS; ++c)
     lcdDesired[row][c] = c < fixed.length() ? fixed[c] : ' ';
   lcdDesired[row][LCD_COLS] = '\0';
@@ -4542,16 +4552,16 @@ String lcdZeroBar(const char *label, double value, double fullScale, bool valid=
   String s(label);
   while (s.length()<5) s += ' ';
   if (!valid || !isfinite(value) || !(fullScale>0.0)) {
-    s += "-----?-----";
-    return fit16(s);
+    s += "-------?-------";
+    return fit20(s);
   }
   double n=value/fullScale;
   if (n>1.0) n=1.0;
   if (n<-1.0) n=-1.0;
-  int pos=(int)lround((n+1.0)*5.0); // 0..10, Nullpunkt exakt in der Mitte
-  if (pos<0) pos=0; if (pos>10) pos=10;
-  for (int i=0;i<11;i++) s += (i==pos) ? (char)0xFF : '|';
-  return fit16(s);
+  int pos=(int)lround((n+1.0)*7.0); // 0..14, Nullpunkt exakt in der Mitte
+  if (pos<0) pos=0; if (pos>14) pos=14;
+  for (int i=0;i<15;i++) s += (i==pos) ? (char)0xFF : '|';
+  return fit20(s);
 }
 
 String lcdPpm(double v, bool valid, int dec) {
@@ -4568,9 +4578,9 @@ void updateLcd() {
   const bool localNtpFresh=ntpFresh(NTP_LOCAL) && isfinite(v.localGpsMs);
   updateLcdDamping(v,localNtpFresh);
 
-  // Zeile 1: HH:MM:SS DD.MM plus genau zwei eigene Statuszeichen.
-  // 8 + 1 + 5 + 2 = 16 Zeichen.
-  String head=fmtTime(nowUs,true,false)+" "+fmtDateShort(nowUs,true);
+  // Zeile 1: HH:MM:SS DD.MM.YY plus genau zwei eigene Statuszeichen.
+  // 8 + 1 + 8 + 1 + 2 = 20 Zeichen.
+  String head=fmtTime(nowUs,true,false)+" "+fmtDateCompact(nowUs,true)+" ";
   head += (char)((WiFi.status()==WL_CONNECTED || apMode) ? LCD_GLYPH_WIFI_OK : LCD_GLYPH_WIFI_OFF);
   head += (char)(v.locked ? LCD_GLYPH_GPS_OK : LCD_GLYPH_GPS_OFF);
   lcdDesiredLine(0,head);
@@ -4790,7 +4800,7 @@ void setup() {
   tempInit();
 
   if (lcdAddr) {
-    lcd = new LiquidCrystal_I2C(lcdAddr,16,4);
+    lcd = new LiquidCrystal_I2C(lcdAddr,20,4);
     lcd->init();
     lcd->backlight();
     lcdLoadStatusGlyphs();
