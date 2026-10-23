@@ -115,7 +115,8 @@ constexpr uint32_t POOL_NTP_MAX_RTT_US = 250000;
 constexpr uint32_t NTP_MAX_SAMPLE_AGE_MS = 240000;
 constexpr uint32_t NTP_BEST_WINDOW_MS = 180000;
 // ATGM336H: RMC-Sekunde wird dem vorhergehenden PPS zugeordnet.
-// Vor Stratum-1-Betrieb gegen eine unabhaengige Zeitquelle verifizieren!
+// Der Langzeitvergleich gegen lokale/pool NTP-Referenzen zeigte keinen +/-1-s-Versatz;
+// GPS_LOCK wird deshalb ab 1.3.0 als Stratum 1 ausgegeben und weiter ueberwacht.
 constexpr int8_t RMC_PPS_ADJUST_SECONDS = 0;
 constexpr uint8_t GPS_NTP_STRATUM = 1;
 constexpr uint8_t OCXO_NTP_STRATUM = 2;
@@ -1638,12 +1639,14 @@ bool holdoverDeltaPlausible(uint32_t oldRaw, int64_t oldMono,
     return false;
   const uint32_t d=(uint32_t)(raw-oldRaw);
   const double expected=hz*(double)dt*1e-6;
-  const double tol=fmax(500.0,expected*0.001);
+  const double tol=fmax(500.0,fmin(5000.0,expected*0.001));
   return fabs((double)d-expected)<=tol;
 }
 
 void ocxoHoldoverPollTick() {
-  if (!holdoverAnchorValid) return;
+  // Im normalen GPS_LOCK keine zusaetzlichen PCNT-Reads: der bewaehrte
+  // PPS-Messpfad aus 1.2.12 bleibt unangetastet. Erst GPS-Verlust aktiviert Polling.
+  if (gpsLocked() || !holdoverAnchorValid) return;
   const int64_t now=esp_timer_get_time();
   if (holdoverLastPollMonoUs &&
       now-holdoverLastPollMonoUs < (int64_t)HOLDOVER_POLL_US) return;
@@ -3945,7 +3948,7 @@ Zur Bestaetigung FORMATIEREN eingeben: <input name="confirm" pattern="FORMATIERE
 <div id="firstPcntErr" class="statline">Erster Betriebsfehler: --</div>
 </div>
 <div class="card"><b>Messqualitaet</b><div id="quality">--</div>
-<p><small>Frequenzwerte sind PPS-nahe, softwarezeitgestempelte PCNT-Schaetzungen ohne Hardware-Latch. PCNT wird nur noch PPS-bezogen gelesen; Einzel-Read-Ausreisser verschieben die letzte gute Basis nicht. GPS-RMC/PPS-Sekundenzuordnung muss extern bestaetigt werden. Die Unsicherheit ist eine Schaetzung, keine Kalibrierbescheinigung. Hochlatente NTP-Proben werden verworfen.</small></p></div>
+<p><small>Frequenzwerte sind PPS-nahe, softwarezeitgestempelte PCNT-Schaetzungen ohne Hardware-Latch. Im GPS_LOCK bleibt PCNT PPS-bezogen; unabhaengiges 10-MHz-Polling startet nur im OCXO-Holdover. Einzel-Read-Ausreisser verschieben die letzte gute Basis nicht. Die RMC/PPS-Sekundenzuordnung wird im Betrieb weiter gegen die NTP-Vergleiche ueberwacht. Die Unsicherheit ist eine Schaetzung, keine Kalibrierbescheinigung. Hochlatente NTP-Proben werden verworfen.</small></p></div>
 <div class="card"><b>OCXO-Statistik / Verlauf (letzte Stunde im RAM)</b>
 <small>Statistik über die gültigen 300-s-Punkte des dargestellten 10-s-Trends. Die drei Linien sind Mittelwert sowie Mittelwert ±1σ.</small>
 <div id="ocxoStats" class="statline">--</div>
@@ -4093,7 +4096,7 @@ async function upd(){
   document.getElementById('quality').textContent=
     'Core 1 Zeitmessung / Core 0 WLAN-Web-FS-NTP-TempIO | GPS-Referenz ungeeignet '+
     x.rejectedGpsReference+' | RTC-Logqueue ueberlaufen '+x.rtcEventsDropped+' | '+
-    'NTP Stratum '+x.ntpStratumGps+' (GPS), PCNT-Snapshotfehler '+x.counterReadFailures+
+    'NTP Stratum '+x.ntpStratumGps+' GPS / '+x.ntpStratumHoldover+' OCXO, PCNT-Snapshotfehler '+x.counterReadFailures+
     ' (Reads '+x.pcntReadAttempts+', Treiberfehler '+x.pcntDriverReadErrors+', Rohfehler Betrieb OC/32k '+x.pcntOcxoUnrecoverableRun+'/'+x.pcntRtc32UnrecoverableRun+' gesamt '+x.pcntOcxoUnrecoverable+'/'+x.pcntRtc32Unrecoverable+', Retries '+x.pcntRetryReads+', Read gerettet '+x.pcntRecoveredReads+', Sekunden ueberbrueckt '+x.pcntRecoveredSpans+')'+
     ', unrettbar '+x.counterInvalidWindows+
     ' | OCXO Overflow-Verdacht '+x.ocxoOverflowSuspects+
@@ -4833,7 +4836,7 @@ void setup() {
   Serial.printf("Zeitkiste %s gestartet. GPIO GPS 1/2/4, I2C 5/6, RTC 7/8, OCXO 9\n",FW_VERSION);
   Serial.printf("RTC: %s; RTC speichert UTC.\n",
                 rtcCalEnabled ? "GPS/PPS-Autosync + Aging EIN" : "FREE-RUN, keine GPS/Aging-Schreibungen");
-  Serial.println("WICHTIG: GNSS PPS-Zuordnung und PCNT 10MHz Genauigkeit gegen Referenz testen.");
+  Serial.println("GNSS/PPS-Zuordnung und OCXO-Holdover weiter gegen die angezeigten Referenzvergleiche ueberwachen.");
 }
 
 void loop() {
