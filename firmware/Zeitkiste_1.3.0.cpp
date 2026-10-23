@@ -1877,6 +1877,7 @@ void processSqw() {
       ppsPeriod < 990000 || ppsPeriod > 1010000) {
     rtcGpsPhaseMs = NAN;
     rtcLiveRateReset();
+    if (!rtcCalEnabled) rtcFreeRunLastPhaseMs=NAN;
     return;
   }
 
@@ -3899,7 +3900,7 @@ table{width:100%}td{padding:5px}td:last-child{text-align:right;font-family:monos
 <tr><td>Pool − GPS</td><td id="pg">--</td></tr>
 <tr><td>Lokal − Pool</td><td id="lp">--</td></tr>
 <tr><td>RTC Phase − GPS</td><td id="rgp">--</td></tr>
-<tr><td>RTC Drift seit Start</td><td id="rgd">--</td></tr>
+<tr><td>RTC Drift / Free-Run</td><td id="rgd">--</td></tr>
 <tr><td>RTC − NTP lokal</td><td id="rl">--</td></tr>
 </table></div>
 
@@ -4063,7 +4064,7 @@ async function upd(){
   document.getElementById('pg').textContent=n(x.poolGpsMs,3,' ms');
   document.getElementById('lp').textContent=n(x.localPoolMs,3,' ms');
   document.getElementById('rgp').textContent=n(x.rtcGpsPhaseMs,3,' ms');
-  document.getElementById('rgd').textContent=n(x.rtcGpsDriftMs,3,' ms');
+  document.getElementById('rgd').textContent=n(x.rtcCalEnabled?x.rtcGpsDriftMs:x.rtcFreeRunDriftMs,3,' ms');
   document.getElementById('rl').textContent=n(x.rtcLocalMs,3,' ms');
 
   const bo=bestOcxo(x);
@@ -4370,7 +4371,7 @@ void setupWeb() {
   // Keine unsynchronisierte manuelle RTC-Setzung per HTTP-GET.
   web.on("/setrtc", HTTP_GET, [](AsyncWebServerRequest *request){
     const int64_t t0=esp_timer_get_time();
-    request->send(410,"text/plain","RTC wird GPS/PPS-synchron automatisch gestellt.");
+    request->send(410,"text/plain","Manuelle RTC-Setzung ist deaktiviert. RTC AUTO/FREE-RUN wird in der Web-Konfiguration gewaehlt.");
     noteWebCallback(t0);
   });
 
