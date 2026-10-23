@@ -3023,7 +3023,9 @@ void ntpServerTick() {
   uint8_t q[48] = {};
   if (ntpServer.read(q, 48) != 48) return;
   while (ntpServer.available()) ntpServer.read();
-  if ((q[0]&7) != 3 || (q[0]>>3&7) < 3) { ntpRejected++; return; }
+  if ((q[0]&7) != 3) { ntpRejected++; return; } // nur Client-Anfragen
+  const uint8_t requestVersion = (q[0] >> 3) & 7;
+  const uint8_t replyVersion = (requestVersion >= 3 && requestVersion <= 4) ? requestVersion : 4;
   uint64_t tReceive = clockNowUs();
   MeasurementView v;
   readMeasurement(v);
@@ -3034,7 +3036,7 @@ void ntpServerTick() {
               v.holdoverReady && v.uncertaintyMs < 1000.0f;
   bool credible = locked || hold;
   uint8_t reply[48] = {};
-  reply[0] = (credible ? 0x00 : 0xC0) | (q[0] & 0x38) | 4;
+  reply[0] = (credible ? 0x00 : 0xC0) | (replyVersion << 3) | 4;
   reply[1] = locked ? GPS_NTP_STRATUM : (hold ? OCXO_NTP_STRATUM : 16);
   reply[2] = q[2];
   reply[3] = (uint8_t)-20;
