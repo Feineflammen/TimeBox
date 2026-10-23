@@ -4571,7 +4571,7 @@ void updateLcd() {
   // Zeile 1: HH:MM:SS DD.MM plus genau zwei eigene Statuszeichen.
   // 8 + 1 + 5 + 2 = 16 Zeichen.
   String head=fmtTime(nowUs,true,false)+" "+fmtDateShort(nowUs,true);
-  head += (char)(WiFi.status()==WL_CONNECTED ? LCD_GLYPH_WIFI_OK : LCD_GLYPH_WIFI_OFF);
+  head += (char)((WiFi.status()==WL_CONNECTED || apMode) ? LCD_GLYPH_WIFI_OK : LCD_GLYPH_WIFI_OFF);
   head += (char)(v.locked ? LCD_GLYPH_GPS_OK : LCD_GLYPH_GPS_OFF);
   lcdDesiredLine(0,head);
 
