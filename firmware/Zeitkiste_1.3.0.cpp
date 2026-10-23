@@ -4072,7 +4072,7 @@ async function upd(){
 
   const bo=bestOcxo(x);
   gauge('gOcxo',bo[0],0.010,6,'ppm',bo[1],GAUGE_TAU_OCXO,Number.isFinite(bo[0]));
-  gauge('gRtc',x.rtcLiveRatePpm,5.0,4,'ppm','Gang live '+x.rtcLiveRateSpanSec+' s',GAUGE_TAU_RTC,Number.isFinite(x.rtcLiveRatePpm));
+  gauge('gRtc',x.rtcLiveRatePpm,0.5,4,'ppm','Gang live '+x.rtcLiveRateSpanSec+' s',GAUGE_TAU_RTC,Number.isFinite(x.rtcLiveRatePpm));
   gauge('gEsp',x.espPpm,50.0,2,'ppm','Taktmodell',GAUGE_TAU_ESP,Number.isFinite(x.espPpm));
   gauge('gNtp',x.localGpsMs,20.0,2,'ms','lokal − GPS',GAUGE_TAU_NTP,x.localSampleAgeSec>=0&&Number.isFinite(x.localGpsMs));
 
@@ -4468,7 +4468,7 @@ void webMaintenanceTick() {
 // Die vier Messgroessen haben bewusst eigene Skalen; die Balkenposition ist
 // daher ein relativer Vergleich zur jeweils sinnvollen Toleranz.
 constexpr double LCD_BAR_OCXO_PPM = 0.010;
-constexpr double LCD_BAR_RTC_PPM  = 5.0;
+constexpr double LCD_BAR_RTC_PPM  = 0.5;
 constexpr double LCD_BAR_ESP_PPM  = 50.0;
 constexpr double LCD_BAR_NTP_MS   = 20.0;
 constexpr double LCD_DAMP_TAU_S   = 8.0;
