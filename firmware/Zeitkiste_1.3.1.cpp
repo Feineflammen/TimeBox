@@ -135,6 +135,7 @@ String wifiSsid;
 String wifiPass;
 String localNtpHost = "192.168.178.62";
 String poolNtpHost = "pool.ntp.org";
+bool ntpReferenceQueriesEnabled = true;
 SemaphoreHandle_t ntpHostMutex = nullptr;
 
 // WLAN-/Core0-Diagnose 1.2.8. Nur Zaehler/Timestamps im Event-Callback;
@@ -169,6 +170,7 @@ uint32_t webMaintNotBeforeMs = 0;
 String webMaintSsid, webMaintPass, webMaintLocalNtp, webMaintPoolNtp;
 bool webMaintUpdatePass = false;
 bool webMaintRtcCalEnabled = true;
+bool webMaintNtpReferenceQueriesEnabled = true;
 
 String asyncPostArg(AsyncWebServerRequest *request, const char *name) {
   if (!request || !request->hasParam(name, true)) return String();
@@ -3603,6 +3605,7 @@ void loadConfig() {
   wifiPass = prefs.getString("pass", "");
   localNtpHost = prefs.getString("localntp", "192.168.178.62");
   poolNtpHost = prefs.getString("poolntp", "pool.ntp.org");
+  ntpReferenceQueriesEnabled = prefs.getBool("ntpref", true);
   rtcCalEnabled = prefs.getBool("rtccal", true);
   prefs.end();
 }
@@ -3669,6 +3672,7 @@ String statusJson() {
   j += "\"gpsPpsAssumption\":\"RMC=vorausgehender PPS\",";
   j += "\"ntpStratumGps\":" + String(GPS_NTP_STRATUM) + ",";
   j += "\"ntpStratumHoldover\":" + String(OCXO_NTP_STRATUM) + ",";
+  j += "\"ntpReferenceQueriesEnabled\":" + String(ntpReferenceQueriesEnabled?"true":"false") + ",";
   j += "\"holdoverBiasPpm\":" + jnum(v.holdoverBiasPpm,9) + ",";
   j += "\"holdoverSigmaPpm\":" + jnum(v.holdoverSigmaPpm,9) + ",";
   j += "\"holdoverLearnCount\":" + String(v.holdoverLearnCount) + ",";
@@ -3954,6 +3958,8 @@ SSID<input name="ssid" value="%SSID%">
 Passwort<input type="password" name="pass" placeholder="leer = unveraendert">
 Lokaler NTP<input name="localntp" value="%LOCAL%">
 Pool-NTP<input name="poolntp" value="%POOL%">
+<label style="display:block;margin:10px 0"><input type="checkbox" name="ntpref" value="1" %NTPREFCHECKED%> NTP-Referenzvergleiche aktiv (lokal + Pool)</label>
+<small>Aus = keine ausgehenden NTP-Abfragen. Der eigene NTP-Server auf UDP 123 bleibt aktiv.</small>
 <label style="display:block;margin:10px 0"><input type="checkbox" name="rtccal" value="1" %RTCCALCHECKED%> RTC GPS-Synchronisierung + Aging-Kalibrierung aktiv</label>
 <small>Aus = echter RTC-Free-Run: keine GPS-Zeit-Schreibungen und keine Aging-Register-Aenderungen. SQW gegen GPS wird weiter nur gemessen.</small>
 <button>Speichern & Neustart</button>
@@ -4284,6 +4290,7 @@ String buildPage() {
   h.replace("%SSID%", htmlEscape(wifiSsid));
   h.replace("%LOCAL%", htmlEscape(localNtpHost));
   h.replace("%POOL%", htmlEscape(poolNtpHost));
+  h.replace("%NTPREFCHECKED%", ntpReferenceQueriesEnabled ? "checked" : "");
   h.replace("%RTCCALCHECKED%", rtcCalEnabled ? "checked" : "");
   h.replace("%RESETTOKEN%", String(resetToken));
   h.replace("%FW_VERSION%", FW_VERSION);
@@ -4404,6 +4411,7 @@ void setupWeb() {
     webMaintUpdatePass=webMaintPass.length()>0;
     webMaintLocalNtp=asyncPostArg(request,"localntp");
     webMaintPoolNtp=asyncPostArg(request,"poolntp");
+    webMaintNtpReferenceQueriesEnabled=request->hasParam("ntpref",true);
     webMaintRtcCalEnabled=request->hasParam("rtccal",true);
     webMaintPending=WEB_MAINT_SAVE_RESTART;
     webMaintNotBeforeMs=millis()+500U; // Antwort darf vor Neustart abfliessen
@@ -4435,6 +4443,7 @@ void webMaintenanceTick() {
   String ssid,pass,localHost,poolHost;
   bool updatePass=false;
   bool rtcCalCfg=rtcCalEnabled;
+  bool ntpRefCfg=ntpReferenceQueriesEnabled;
 
   if (xSemaphoreTake(webMaintMutex,0)!=pdTRUE) return;
   if (webMaintPending!=WEB_MAINT_NONE &&
@@ -4444,6 +4453,7 @@ void webMaintenanceTick() {
       ssid=webMaintSsid; pass=webMaintPass;
       localHost=webMaintLocalNtp; poolHost=webMaintPoolNtp;
       updatePass=webMaintUpdatePass;
+      ntpRefCfg=webMaintNtpReferenceQueriesEnabled;
       rtcCalCfg=webMaintRtcCalEnabled;
     }
     webMaintPending=WEB_MAINT_NONE;
@@ -4491,6 +4501,7 @@ void webMaintenanceTick() {
     prefs.putString("pass",wifiPass);
     prefs.putString("localntp",localNtpHost);
     prefs.putString("poolntp",poolNtpHost);
+    prefs.putBool("ntpref",ntpRefCfg);
     prefs.putBool("rtccal",rtcCalCfg);
     prefs.end();
     markFlashActivity();
@@ -4703,7 +4714,7 @@ void ntpWorker(void *arg) {
 #if ZEITKISTE_WLAN_AN
   uint32_t lastLocal=0, lastPool=0;
   for (;;) {
-    if (WiFi.status()==WL_CONNECTED) {
+    if (ntpReferenceQueriesEnabled && WiFi.status()==WL_CONNECTED) {
       uint32_t now=millis();
       if (!lastLocal || (uint32_t)(now-lastLocal)>=LOCAL_NTP_INTERVAL) {
         lastLocal=now;
