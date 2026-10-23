@@ -3925,7 +3925,7 @@ Pool-NTP<input name="poolntp" value="%POOL%">
 <input type="hidden" name="kind" value="all">
 <input type="hidden" name="confirm" value="LOESCHEN">
 <button type="submit" class="danger">ALLE Messwerte loeschen</button></form>
-<small>Loescht CSV, Ereignisse, Statistik, Messpuffer, Trend und BEIDE Temperatur-Lernmodelle. WLAN- und NTP-Konfiguration sowie die aktuelle RTC-Uhrzeit bleiben unveraendert. Die aktuell verwendete ESP-Taktkorrektur bleibt bis zur naechsten Neuberechnung aktiv.</small>
+<small>Loescht CSV, Ereignisse, Statistik, Messpuffer, Trend, BEIDE Temperatur-Lernmodelle und das gelernte OCXO-Holdovermodell. WLAN- und NTP-Konfiguration, RTC-Free-Run-Schalter sowie die aktuelle RTC-Uhrzeit bleiben unveraendert. Die aktuell verwendete ESP-Taktkorrektur bleibt bis zur naechsten Neuberechnung aktiv.</small>
 <div id="fsinit" style="display:none;margin-top:15px;border-top:1px solid #555;padding-top:12px">
 <b>Dateisystem nicht eingebunden</b>
 <p>Eine Erstformatierung loescht ALLE bisherigen Dateien in der Dateisystempartition, aber nicht die Firmware. Nur wenn diese Daten nicht mehr gebraucht werden.</p>
